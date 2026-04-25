@@ -22,7 +22,6 @@ def cameras():
         query = f"""
         [out:json][timeout:90][bbox:{south},{west},{north},{east}];
         (
-          way[highway][maxspeed];
           node[highway=speed_camera];
         );
         out body geom;
@@ -84,7 +83,6 @@ def speed_limits():
         [out:json][timeout:90][bbox:{south},{west},{north},{east}];
         (
           way[highway][maxspeed];
-          node[highway=speed_camera];
         );
         out body geom;
         """
