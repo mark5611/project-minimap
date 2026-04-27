@@ -132,6 +132,7 @@ def checkRequiredDirectory():
 
     if not required_directory1.exists() or not required_directory2.exists():
 
+        print(Fore.RED+"Missing Dataset Detected......\nDownloading\n"+Fore.RESET)
         OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
         OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
 
