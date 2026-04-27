@@ -126,7 +126,7 @@ def logLastOnDate():
             print("\nDataset Up To Date")
             log.write(last_update_window)
 
-def checkRequiredDirectory():
+def checkRequiredDirectoryExists():
     required_directory1 = Path("./decoded_data")
     required_directory2 = Path("./osm-data")
 
@@ -143,7 +143,7 @@ def checkRequiredDirectory():
             log.write(str(today))
 
 
-checkRequiredDirectory()
+checkRequiredDirectoryExists()
 logLastOnDate()
 
 runtime_thread = threading.Thread(target=runTime.main, daemon=True)
