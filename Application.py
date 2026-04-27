@@ -1,9 +1,14 @@
 import threading
+from os.path import isfile
 from pathlib import Path
 
 from colorama import Fore
 
+import playsound3
 import math
+
+from playsound3 import playsound
+
 import CoreLogic
 import OSMMapExtractor
 import OfflineOSMManager
@@ -14,6 +19,7 @@ from datetime import datetime as dt
 current_road = ""
 current_speed_limit = 0
 
+sound_setting = "male"
 located = False
 coords = CoreLogic.getUserLocation()
 user_lat, user_lon = coords[0], coords[1]
@@ -53,7 +59,12 @@ def roadAndSpeedLimit(region):
                 if current_speed_limit != match.get("maxspeed"):
                     print(Fore.CYAN + "New Limit" + Fore.RESET)
                     current_speed_limit = match.get("maxspeed")
-                    # sound
+                    if sound_setting == "male":
+                        sound = "./sound_files/Male_voice/"+current_speed_limit+".mp3"
+                        if isfile(sound):
+                            playsound(sound)
+                        else:
+                            playsound("./sound_files/Male_voice/new-speed-limit.mp3")
                 break
 
             else:
@@ -95,6 +106,7 @@ def checkSpeedCameras(region):
                 closest = distance
             elif distance < closest:
                 closest = distance
+        playsound("./sound_files/Male_voice/speed-cam.mp3")
         print(Fore.RED+f"\nSpeed Camera in: {int(closest)} meters"+Fore.RESET)
     else:
         print(Fore.WHITE+"\nNo Cameras in Area"+Fore.RESET)
@@ -141,7 +153,6 @@ def checkRequiredDirectoryExists():
         with open("./misc_data/lastLogdate.txt", "w") as log:
             today = datetime.date.today()
             log.write(str(today))
-
 
 checkRequiredDirectoryExists()
 logLastOnDate()
