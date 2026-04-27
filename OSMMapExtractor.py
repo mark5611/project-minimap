@@ -9,10 +9,10 @@ def main():
     def writeDecoded(countryname):
         Path("./decoded_data").mkdir(parents=True, exist_ok=True)
         with open(f"./decoded_data/{countryname}_roads.json", "w", encoding="utf-8") as f:
-            json.dump(json_roads, f, ensure_ascii=False, indent=4)
+            json.dump(json_roads, f, ensure_ascii=False)
 
         with open(f"./decoded_data/{countryname}_cams.json", "w", encoding="utf-8") as f:
-            json.dump(json_cams, f, ensure_ascii=False, indent=4)
+            json.dump(json_cams, f, ensure_ascii=False)
 
     class MyHandler(osmium.SimpleHandler):
         def __init__(self):
