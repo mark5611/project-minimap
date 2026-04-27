@@ -1,11 +1,13 @@
 import osmium
 import json
+from pathlib import Path
 
 def main():
     filepath_hu = "./osm-data/hungary.osm.pbf"
     filepath_at = "./osm-data/austria.osm.pbf"
 
     def writeDecoded(countryname):
+        Path("./decoded_data").mkdir(parents=True, exist_ok=True)
         with open(f"./decoded_data/{countryname}_roads.json", "w", encoding="utf-8") as f:
             json.dump(json_roads, f, ensure_ascii=False, indent=4)
 
