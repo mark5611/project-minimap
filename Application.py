@@ -1,4 +1,5 @@
 import threading
+from pathlib import Path
 
 from colorama import Fore
 
@@ -124,6 +125,20 @@ def logLastOnDate():
         else:
             print("\nDataset Up To Date")
             log.write(last_update_window)
+
+def checkRequiredDirectory():
+    required_directory1 = Path("./decoded_data")
+    required_directory2 = Path("./osm-data")
+
+    if not required_directory1.exists() or not required_directory2.exists():
+
+        OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
+        OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+
+        OSMMapExtractor.main()
+
+
+checkRequiredDirectory()
 logLastOnDate()
 
 runtime_thread = threading.Thread(target=runTime.main, daemon=True)
