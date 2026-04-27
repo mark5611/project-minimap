@@ -1,7 +1,13 @@
 import time
 
+i = 0
+
+def calculate_update_times(successes):
+    if successes > 0:
+        return f"{i/successes:.2f}"
+
 def main():
-    i = 0
+    global i
     while True:
         if i < 60:
             print(f"\rRunTime: {i} second(s)", end="", flush=True)
