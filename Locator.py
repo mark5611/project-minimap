@@ -12,7 +12,6 @@ class LocationDelegate(NSObject):
             return None
         self.location = None
         self.error = None
-
         return self
 
     def locationManager_didUpdateLocations_(self, manager, locations):
