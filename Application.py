@@ -138,6 +138,10 @@ def checkRequiredDirectory():
 
         OSMMapExtractor.main()
 
+        with open("./misc_data/lastLogdate.txt", "w") as log:
+            today = datetime.date.today()
+            log.write(str(today))
+
 
 checkRequiredDirectory()
 logLastOnDate()
