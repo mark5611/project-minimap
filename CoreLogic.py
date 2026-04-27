@@ -4,7 +4,7 @@ import json
 from colorama import Fore
 
 import Locator
-
+#
 camera_detection_range = 1000
 
 def getUserLocation():

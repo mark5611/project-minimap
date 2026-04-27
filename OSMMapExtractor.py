@@ -64,7 +64,7 @@ def main():
     handler1 = MyHandler()
     handler1.apply_file(filepath_hu, locations=True)
     writeDecoded("hungary")
-
+    #
     json_roads = []
     json_cams = []
     handler2 = MyHandler()
