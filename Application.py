@@ -15,6 +15,7 @@ import runTime
 import datetime
 from datetime import datetime as dt
 
+current_speed_limit = 0
 
 def camera_distance_m(user_lat: float, user_lon: float, cam_lat: float, cam_lon: float) -> float:
     R = 6_371_000  # Earth's radius in metres
@@ -85,10 +86,11 @@ class CoreApplication():
         self.success = 0
         self.fail = 0
         self.current_road = ""
-        self.current_speed_limit = 0
         self.region = region
 
     def roadAndSpeedLimit(self):
+        global current_speed_limit
+
         speed_limits = CoreLogic.Roads().speed_limits(self.region)
         lim = speed_limits
 
@@ -115,7 +117,7 @@ class CoreApplication():
                     self.current_road = match.get("roadName")
                     print(f"---------------\nstreet name: {self.current_road}")
                     print(f"---------------\nspeed limit: {match.get("maxspeed")}\n--------------\n")
-                    if self.current_speed_limit != match.get("maxspeed"):
+                    if current_speed_limit != match.get("maxspeed"):
                         print(Fore.CYAN + "New Limit" + Fore.RESET)
                         current_speed_limit = match.get("maxspeed")
                         if self.sound_setting == "male":

@@ -61,7 +61,6 @@ class Decoder():
         self.countryName = countryName
 
     def writeDecoded(self):
-        print("writing")
         Path("./decoded_data").mkdir(parents=True, exist_ok=True)
         with open(f"./decoded_data/{self.countryName}_roads.json", "w", encoding="utf-8") as f:
             json.dump(json_roads, f, ensure_ascii=False)
