@@ -1,5 +1,5 @@
 # SpeedGuard - requirements.txt
-# Note: pyobjc and Corelocation are macOS-only dependencies
+# Note: pyobjc and CoreLocation are macOS-only dependencies
 
 requests
 beautifulsoup4
