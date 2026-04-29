@@ -73,5 +73,3 @@ def main():
     handler2.apply_file(filepath_at, locations=True)
     writeDecoded("austria")
 
-
-
