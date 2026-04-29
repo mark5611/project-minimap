@@ -6,9 +6,8 @@ download_path = Path("./osm-data")
 download_path.mkdir(parents=True, exist_ok=True)
 
 def download_manager(name, link):
-    hungary_url = link
     latest_url = ""
-    req = requests.get(hungary_url)
+    req = requests.get(link)
     if req.status_code == 200:
         soup = BeautifulSoup(req.content, "html.parser")
         links = soup.find_all("a")
