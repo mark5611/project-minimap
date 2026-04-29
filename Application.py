@@ -1,4 +1,5 @@
 import threading
+import time
 from os.path import isfile
 from pathlib import Path
 
@@ -79,9 +80,10 @@ def checkRequiredDirectoryExists():
 
 class CoreApplication():
     def __init__(self, region: str, sound_setting="male"):
+        self.user_cords = CoreLogic.UserLocation().getUserLocation()
         self.sound_setting = sound_setting
-        self.user_lat = CoreLogic.UserLocation().getUserLocation()[0]
-        self.user_lon = CoreLogic.UserLocation().getUserLocation()[1]
+        self.user_lat = self.user_cords[0]
+        self.user_lon = self.user_cords[1]
         self.tol = 0.0001
         self.success = 0
         self.fail = 0
@@ -91,7 +93,7 @@ class CoreApplication():
     def roadAndSpeedLimit(self):
         global current_speed_limit
 
-        speed_limits = CoreLogic.Roads().speed_limits(self.region)
+        speed_limits = CoreLogic.Roads(self.user_cords).speed_limits(self.region)
         lim = speed_limits
 
         tol = 0.0001
@@ -137,7 +139,7 @@ class CoreApplication():
             self.roadAndSpeedLimit()
 
     def checkSpeedCameras(self):
-        cameras = CoreLogic.Cameras().cameras(self.region)
+        cameras = CoreLogic.Cameras(self.user_cords).cameras(self.region)
         closest = None
         if cameras != [] and cameras != None:
             for c in cameras:
@@ -166,6 +168,8 @@ while True:
     try:
         newApplication.roadAndSpeedLimit()
         newApplication.checkSpeedCameras()
+
+        time.sleep(2)
 
         print(Fore.GREEN+f"\n--------------\nSuccess: {newApplication.success}\nFail: {newApplication.fail}\nUpdate frequency: {runTime.calculate_update_times(newApplication.success)}\n--------------")
 

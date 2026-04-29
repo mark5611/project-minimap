@@ -5,7 +5,7 @@ from colorama import Fore
 
 import Locator_macOS
 
-camera_detection_range = 1000
+camera_detection_range = 500
 
 class UserLocation():
     def __init__(self):
@@ -21,11 +21,13 @@ def getRoads(region):
         decoded_data = json.load(file)
         return decoded_data
 class Roads():
+    def __init__(self, targetLocation):
+        self.targetLocation = targetLocation
 
     def speed_limits(self, region):
         try:
             print(Fore.WHITE + "\nLocating User" + Fore.RESET)
-            coords = UserLocation().getUserLocation()
+            coords = self.targetLocation
             lat, lon = coords[0], coords[1]
 
             lat_offset = 50 / 111320
@@ -57,11 +59,13 @@ def getCameras(region):
         decoded_data = json.load(file)
         return decoded_data
 class Cameras():
+    def __init__(self, targetLocation):
+        self.targetLocation = targetLocation
 
     def cameras(self,region):
         try:
             print(Fore.WHITE + "\nLocating User" + Fore.RESET)
-            coords = UserLocation().getUserLocation()
+            coords = self.targetLocation
             lat, lon = coords[0], coords[1]
 
             lat_offset = camera_detection_range / 111320
