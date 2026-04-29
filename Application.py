@@ -4,7 +4,6 @@ from pathlib import Path
 
 from colorama import Fore
 
-import playsound3
 import math
 
 from playsound3 import playsound
@@ -16,100 +15,19 @@ import runTime
 import datetime
 from datetime import datetime as dt
 
-current_road = ""
-current_speed_limit = 0
 
-sound_setting = "male"
-located = False
-coords = CoreLogic.getUserLocation()
-user_lat, user_lon = coords[0], coords[1]
-
-success, fail = 0,0
-
-def roadAndSpeedLimit(region):
-    global current_speed_limit, current_road, success, fail
-
-    speed_limits = CoreLogic.speed_limits(region)
-    lim = speed_limits
-
-    target_lat = user_lat
-    target_lon = user_lon
-    tol = 0.0001
-
-    if speed_limits != [] and speed_limits != None:
-        while not located:
-            match = next(
-                (
-                    elem
-                    for elem in lim
-                    if any(
-                    abs(point["lat"] - target_lat) <= tol and
-                    abs(point["lon"] - target_lon) <= tol
-                    for point in elem.get("coords", [])
-                )
-                ),
-                None
-            )
-
-            if match:
-                success += 1
-                print(Fore.CYAN+"\nUser Location"+Fore.RESET)
-                print(f"---------------\nstreet name: {match.get("roadName")}")
-                print(f"---------------\nspeed limit: {match.get("maxspeed")}\n--------------\n")
-                if current_speed_limit != match.get("maxspeed"):
-                    print(Fore.CYAN + "New Limit" + Fore.RESET)
-                    current_speed_limit = match.get("maxspeed")
-                    if sound_setting == "male":
-                        sound = "./sound_files/Male_voice/"+current_speed_limit+".mp3"
-                        if isfile(sound):
-                            playsound(sound)
-                        else:
-                            playsound("./sound_files/Male_voice/new-speed-limit.mp3")
-                break
-
-            else:
-                fail += 1
-                tol += 0.0001
-                print(Fore.RED+f"\nNew Tolerance: {tol}\nRetrying\n"+Fore.RESET)
-        else:
-            fail += 1
-            roadAndSpeedLimit("austria")
-    else:
-        print(Fore.BLUE + "\nRetrying..." + Fore.RESET)
-        roadAndSpeedLimit("austria")
-
-def camera_distance_m(user_lat, user_lon, cam_lat, cam_lon):
-    print(Fore.WHITE+"\nCalculating Distance"+Fore.RESET)
-    R = 6371000  # meters
+def camera_distance_m(user_lat: float, user_lon: float, cam_lat: float, cam_lon: float) -> float:
+    R = 6_371_000  # Earth's radius in metres
 
     phi1 = math.radians(user_lat)
     phi2 = math.radians(cam_lat)
-    dphi = math.radians(cam_lat - user_lat)
-    dlambda = math.radians(cam_lon - user_lon)
+    d_phi = math.radians(cam_lat - user_lat)
+    d_lam = math.radians(cam_lon - user_lon)
 
-    a = (
-        math.sin(dphi / 2) ** 2
-        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    )
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lam / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
-
-def checkSpeedCameras(region):
-    cameras = CoreLogic.cameras(region)
-    closest = None
-    if cameras != [] and cameras != None:
-        for c in cameras:
-            cam_cord=[c["lat"], c["lon"]]
-            distance = camera_distance_m(user_lat,user_lon, cam_cord[0], cam_cord[1])
-            if closest == None:
-                closest = distance
-            elif distance < closest:
-                closest = distance
-        playsound("./sound_files/Male_voice/speed-cam.mp3")
-        print(Fore.RED+f"\nSpeed Camera in: {int(closest)} meters"+Fore.RESET)
-    else:
-        print(Fore.WHITE+"\nNo Cameras in Area"+Fore.RESET)
 
 def logLastOnDate():
     last_update_window = None
@@ -126,10 +44,13 @@ def logLastOnDate():
 
             if choice == "Y" or choice == "y":
 
-                OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
-                OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+                OfflineOSMManager.OSMManager().download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+                OSMMapExtractor.MyHandler().applicator()
+                OSMMapExtractor.Decoder("austria").writeDecoded()
 
-                OSMMapExtractor.main()
+                #OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
+                #OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+
                 log.write(str(today))
             else:
                 print("\nNext reminder: Next launch")
@@ -145,14 +66,91 @@ def checkRequiredDirectoryExists():
     if not required_directory1.exists() or not required_directory2.exists():
 
         print(Fore.RED+"Missing Dataset Detected......\nDownloading\n"+Fore.RESET)
-        OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
-        OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
-
-        OSMMapExtractor.main()
+        #OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
+        #OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+        OfflineOSMManager.OSMManager().download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+        OSMMapExtractor.MyHandler().applicator()
+        OSMMapExtractor.Decoder("austria").writeDecoded()
 
         with open("./misc_data/lastLogdate.txt", "w") as log:
             today = datetime.date.today()
             log.write(str(today))
+
+class CoreApplication():
+    def __init__(self, region: str, sound_setting="male"):
+        self.sound_setting = sound_setting
+        self.user_lat = CoreLogic.UserLocation().getUserLocation()[0]
+        self.user_lon = CoreLogic.UserLocation().getUserLocation()[1]
+        self.tol = 0.0001
+        self.success = 0
+        self.fail = 0
+        self.current_road = ""
+        self.current_speed_limit = 0
+        self.region = region
+
+    def roadAndSpeedLimit(self):
+        speed_limits = CoreLogic.Roads().speed_limits(self.region)
+        lim = speed_limits
+
+        tol = 0.0001
+
+        if speed_limits != [] and speed_limits != None:
+            while True:
+                match = next(
+                    (
+                        elem
+                        for elem in lim
+                        if any(
+                        abs(point["lat"] - self.user_lat) <= tol and
+                        abs(point["lon"] - self.user_lon) <= tol
+                        for point in elem.get("coords", [])
+                    )
+                    ),
+                    None
+                )
+
+                if match:
+                    self.success += 1
+                    print(Fore.CYAN + "\nUser Location" + Fore.RESET)
+                    self.current_road = match.get("roadName")
+                    print(f"---------------\nstreet name: {self.current_road}")
+                    print(f"---------------\nspeed limit: {match.get("maxspeed")}\n--------------\n")
+                    if self.current_speed_limit != match.get("maxspeed"):
+                        print(Fore.CYAN + "New Limit" + Fore.RESET)
+                        current_speed_limit = match.get("maxspeed")
+                        if self.sound_setting == "male":
+                            sound = "./sound_files/Male_voice/" + current_speed_limit + ".mp3"
+                            if isfile(sound):
+                                playsound(sound)
+                            else:
+                                playsound("./sound_files/Male_voice/new-speed-limit.mp3")
+                    break
+
+                else:
+                    self.fail += 1
+                    tol += 0.0001
+                    print(Fore.RED + f"\nNew Tolerance: {tol}\nRetrying\n" + Fore.RESET)
+        else:
+            print(Fore.BLUE + "\nRetrying..." + Fore.RESET)
+            self.roadAndSpeedLimit()
+
+    def checkSpeedCameras(self):
+        cameras = CoreLogic.Cameras().cameras(self.region)
+        closest = None
+        if cameras != [] and cameras != None:
+            for c in cameras:
+                cam_cord = [c["lat"], c["lon"]]
+                print(Fore.WHITE + "\nCalculating Distance" + Fore.RESET)
+                distance = camera_distance_m(self.user_lat, self.user_lon, cam_cord[0], cam_cord[1])
+                if closest == None:
+                    closest = distance
+                elif distance < closest:
+                    closest = distance
+            playsound("./sound_files/Male_voice/speed-cam.mp3")
+            print(Fore.RED + f"\nSpeed Camera in: {int(closest)} meters" + Fore.RESET)
+        else:
+            print(Fore.WHITE + "\nNo Cameras in Area" + Fore.RESET)
+
 
 checkRequiredDirectoryExists()
 logLastOnDate()
@@ -160,12 +158,14 @@ logLastOnDate()
 runtime_thread = threading.Thread(target=runTime.main, daemon=True)
 runtime_thread.start()
 
+newApplication = CoreApplication(region="austria", sound_setting="male")
+
 while True:
     try:
-        roadAndSpeedLimit("austria")
-        checkSpeedCameras("austria")
+        newApplication.roadAndSpeedLimit()
+        newApplication.checkSpeedCameras()
 
-        print(Fore.GREEN+f"\n--------------\nSuccess: {success}\nFail: {fail}\nUpdate frequency: {runTime.calculate_update_times(success)}\n--------------")
+        print(Fore.GREEN+f"\n--------------\nSuccess: {newApplication.success}\nFail: {newApplication.fail}\nUpdate frequency: {runTime.calculate_update_times(newApplication.success)}\n--------------")
 
 
     except Exception as ex:
