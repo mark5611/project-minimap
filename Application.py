@@ -135,7 +135,7 @@ class GUI():
         road_label.setAlignment(Qt.AlignCenter)
 
         road_sign = QLabel()
-        road_sign.setPixmap(QPixmap("./Icons/roadName.png").scaled(300, 70, Qt.KeepAspectRatio))
+        road_sign.setPixmap(QPixmap("Icons/roadNameSign.png").scaled(300, 70, Qt.KeepAspectRatio))
         road_sign.setAttribute(Qt.WA_TransparentForMouseEvents)
         road_sign.setStyleSheet("background: transparent;")
 
@@ -156,7 +156,7 @@ class GUI():
         limit_label.setAlignment(Qt.AlignCenter)
 
         sign_label = QLabel()
-        sign_label.setPixmap(QPixmap("./Icons/SpeedLimitSign.png").scaled(70, 70, Qt.KeepAspectRatio))
+        sign_label.setPixmap(QPixmap("Icons/speedLimitSign.png").scaled(70, 70, Qt.KeepAspectRatio))
         sign_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         sign_label.setStyleSheet("background: transparent;")
 
@@ -170,7 +170,7 @@ class GUI():
         main_layout.addLayout(row)
 
         speed_cam = QLabel()
-        speed_cam.setPixmap(QPixmap("./Icons/no_speed_cam.png").scaled(70, 70, Qt.KeepAspectRatio))
+        speed_cam.setPixmap(QPixmap("Icons/no_speed_camera.png").scaled(70, 70, Qt.KeepAspectRatio))
 
         row = QHBoxLayout()
         row.addSpacing(80)
@@ -188,7 +188,7 @@ class GUI():
         status_label.setAlignment(Qt.AlignBottom)
 
         quit_btn = QPushButton()
-        quit_btn.setIcon(QIcon("./Icons/powerOff.png"))
+        quit_btn.setIcon(QIcon("Icons/powerOffIcon.png"))
         quit_btn.setIconSize(QSize(50, 50))
         quit_btn.setStyleSheet("background: transparent; border: none;")
         quit_btn.clicked.connect(self.window.close)
@@ -212,9 +212,9 @@ class GUI():
             limit_label.setText(str(current_speed_limit))
             update_frequency.setText("Update Frequency: " + str(runTime.calculate_update_times(success)))
             if not isSpeedCamera:
-                speed_cam.setPixmap(QPixmap("./Icons/no_speed_cam.png").scaled(70, 70, Qt.KeepAspectRatio))
+                speed_cam.setPixmap(QPixmap("Icons/no_speed_camera.png").scaled(70, 70, Qt.KeepAspectRatio))
             else:
-                speed_cam.setPixmap(QPixmap("./Icons/speed_cam.png").scaled(70, 70, Qt.KeepAspectRatio))
+                speed_cam.setPixmap(QPixmap("Icons/speed_camera.png").scaled(70, 70, Qt.KeepAspectRatio))
 
         timer = QTimer()
         timer.timeout.connect(update_labels)
