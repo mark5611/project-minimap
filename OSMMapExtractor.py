@@ -28,12 +28,7 @@ class MyHandler(osmium.SimpleHandler):
         self.processed_items += 1
 
         if self.processed_items % self.progress_step == 0:
-            print(f"\rProcessing OSM Data.", end="", flush=True)
-            time.sleep(0.1)
-            print(f"\rProcessing OSM Data..", end="", flush=True)
-            time.sleep(0.1)
-            print(f"\rProcessing OSM Data...", end="", flush=True)
-            time.sleep(0.1)
+            print(f"\rProcessing OSM Data... - {self.processed_items}", end="", flush=True)
 
     def way(self, w):
         self.update_progress()
