@@ -3,12 +3,16 @@ import time
 from os.path import isfile
 from pathlib import Path
 
+from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtGui import QFont, QColor, QPixmap, QIcon
 from colorama import Fore
 
 import math
 
 from playsound3 import playsound
 
+from PyQt5.QtWidgets import QApplication, QWidget, QGridLayout, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, \
+    QStackedLayout
 import CoreLogic
 import OSMMapExtractor
 import OfflineOSMManager
@@ -21,6 +25,8 @@ current_speed_limit = 0
 current_road = None
 success = 0
 fail = 0
+app_status = None
+isSpeedCamera = False
 
 def camera_distance_m(user_lat: float, user_lon: float, cam_lat: float, cam_lon: float) -> float:
     R = 6_371_000  # Earth's radius in metres
@@ -85,22 +91,137 @@ def checkEmptyDb():
         conncetion.Query("UPDATE SETTINGS SET EMPTY_DATABASE = 0")
 
 def mainLoop():
-    global success, fail
+    global success, fail, app_status
     while True:
         try:
             newApplication = CoreApplication(region="austria", sound_setting="male")
+            app_status = "Fetching Location..."
             newApplication.roadAndSpeedLimit()
+            app_status = "Locating Road..."
             newApplication.checkSpeedCameras()
+            app_status = "Checking Speed Cameras..."
             del newApplication
-
-            freq = float(runTime.calculate_update_times(success))
-            if (freq - 1) <= 1:
-                time.sleep(1)
 
             print(Fore.GREEN + f"\n--------------\nSuccess: {success}\nFail: {fail}\nUpdate frequency: {runTime.calculate_update_times(success)}\n--------------")
 
         except Exception as ex:
             print(ex)
+def main():
+    loop_thread = threading.Thread(target=mainLoop, daemon=True)
+    loop_thread.start()
+
+    GUI().start()
+class GUI():
+    def __init__(self):
+        self.app = QApplication([])
+        self.window = QWidget()
+
+    def start(self):
+        self.window.setGeometry(0, 0, 480, 320)
+
+        main_layout = QVBoxLayout()
+        self.window.setLayout(main_layout)
+
+        road_container = QWidget()
+        road_container.setFixedSize(300, 70)
+
+        stacked_r = QStackedLayout(road_container)
+        stacked_r.setStackingMode(QStackedLayout.StackAll)
+
+        road_label = QLabel(str(current_road))
+        road_label.setFont(QFont("Helvetica", 30, QFont.Bold))
+        road_label.setStyleSheet("color: black;")
+        main_layout.addWidget(road_label)
+        road_label.setAlignment(Qt.AlignCenter)
+
+        road_sign = QLabel()
+        road_sign.setPixmap(QPixmap("./Icons/roadName.png").scaled(300, 70, Qt.KeepAspectRatio))
+        road_sign.setAttribute(Qt.WA_TransparentForMouseEvents)
+        road_sign.setStyleSheet("background: transparent;")
+
+        stacked_r.addWidget(road_label)
+        stacked_r.addWidget(road_sign)
+
+        main_layout.addWidget(road_container)
+
+        limit_container = QWidget()
+        limit_container.setFixedSize(70, 70)
+
+        stacked = QStackedLayout(limit_container)
+        stacked.setStackingMode(QStackedLayout.StackAll)
+
+        limit_label = QLabel(str(current_speed_limit))
+        limit_label.setFont(QFont("Helvetica", 25, QFont.Bold))
+        limit_label.setStyleSheet("color: black;")
+        limit_label.setAlignment(Qt.AlignCenter)
+
+        sign_label = QLabel()
+        sign_label.setPixmap(QPixmap("./Icons/SpeedLimitSign.png").scaled(70, 70, Qt.KeepAspectRatio))
+        sign_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        sign_label.setStyleSheet("background: transparent;")
+
+        stacked.addWidget(limit_label)
+        stacked.addWidget(sign_label)
+
+        row = QHBoxLayout()
+        row.addSpacing(80)
+        row.addWidget(limit_container)
+        row.addStretch()
+        main_layout.addLayout(row)
+
+        speed_cam = QLabel()
+        speed_cam.setPixmap(QPixmap("./Icons/no_speed_cam.png").scaled(70, 70, Qt.KeepAspectRatio))
+
+        row = QHBoxLayout()
+        row.addSpacing(80)
+        row.addWidget(limit_container)
+        row.addSpacing(30)  # gap between the two icons
+        row.addWidget(speed_cam)
+        row.addStretch()
+        main_layout.addLayout(row)
+
+        main_layout.addStretch()
+
+        status_label = QLabel("Current Status: " + str(app_status))
+        status_label.setFont(QFont("Helvetica", 15))
+        status_label.setStyleSheet("color: lightblue;")
+        status_label.setAlignment(Qt.AlignBottom)
+
+        quit_btn = QPushButton()
+        quit_btn.setIcon(QIcon("./Icons/powerOff.png"))
+        quit_btn.setIconSize(QSize(50, 50))
+        quit_btn.setStyleSheet("background: transparent; border: none;")
+        quit_btn.clicked.connect(self.window.close)
+
+        btn_row = QHBoxLayout()
+        btn_row.setAlignment(Qt.AlignBottom)
+        btn_row.addWidget(status_label)
+        btn_row.addStretch()
+        btn_row.addWidget(quit_btn)
+        main_layout.addLayout(btn_row)
+
+        update_frequency = QLabel("Update Frequency: " + str(runTime.calculate_update_times(success)))
+        update_frequency.setFont(QFont("Helvetica", 15))
+        update_frequency.setStyleSheet("color: lightblue;")
+
+        main_layout.addWidget(update_frequency)
+
+        def update_labels():
+            status_label.setText("Current Status: "+str(app_status))
+            road_label.setText(str(current_road))
+            limit_label.setText(str(current_speed_limit))
+            update_frequency.setText("Update Frequency: " + str(runTime.calculate_update_times(success)))
+            if not isSpeedCamera:
+                speed_cam.setPixmap(QPixmap("./Icons/no_speed_cam.png").scaled(70, 70, Qt.KeepAspectRatio))
+            else:
+                speed_cam.setPixmap(QPixmap("./Icons/speed_cam.png").scaled(70, 70, Qt.KeepAspectRatio))
+
+        timer = QTimer()
+        timer.timeout.connect(update_labels)
+        timer.start(800)
+
+        self.window.show()
+        self.app.exec()
 
 class SessionHandler():
     def __init__(self):
@@ -155,9 +276,7 @@ class CoreApplication():
 
     def roadAndSpeedLimit(self):
         global current_speed_limit, current_road, success, fail
-
         tol = self.tol
-
         while True:
             matching_road = CoreLogic.Roads(self.user_cords, tol).speed_limits()
 
@@ -185,9 +304,11 @@ class CoreApplication():
 
 
     def checkSpeedCameras(self):
+        global isSpeedCamera
         cameras = CoreLogic.Cameras(self.user_cords).cameras()
         closest = None
         if cameras != [] and cameras != None:
+            isSpeedCamera = True
             for c in cameras:
                 cam_cord = [c[2], c[3]]   # DB row: (id, region, lat, lon)
                 print(Fore.WHITE + "\nCalculating Distance" + Fore.RESET)
@@ -199,6 +320,7 @@ class CoreApplication():
             playsound("./sound_files/Male_voice/speed-cam.mp3")
             print(Fore.RED + f"\nSpeed Camera in: {int(closest)} meters" + Fore.RESET)
         else:
+            isSpeedCamera = False
             print(Fore.WHITE + "\nNo Cameras in Area" + Fore.RESET)
 
 checkRequiredDirectoryExists()
@@ -213,7 +335,7 @@ runtime_thread.start()
 
 newSession.recordSessionStart()
 
-mainLoop()
+main()
 
 newSession.recordSessionEnd()
 newSession.execute()

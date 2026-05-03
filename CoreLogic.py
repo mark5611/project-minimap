@@ -1,10 +1,8 @@
 from math import cos, radians
 
-import json
 from colorama import Fore
 
 import DataBaseConnection
-import Locator_Simulator
 import Locator_macOS
 
 camera_detection_range = 800
