@@ -3,68 +3,61 @@ from math import cos, radians
 import json
 from colorama import Fore
 
+import DataBaseConnection
+import Locator_Simulator
 import Locator_macOS
 
-camera_detection_range = 500
+camera_detection_range = 800
 
 class UserLocation():
-    def __init__(self):
+    def __init__(self, locator_preference = "macOS"):
+        self.locator_preference = locator_preference
         self.location = Locator_macOS.get_current_location()
+        print(print(Fore.RED + "\n------\nUpdating Location\n--------\n" + Fore.RESET))
 
     def getUserLocation(self):
         lat, lon = self.location["latitude"], self.location["longitude"]
         return(lat, lon)
 
-
-def getRoads(region):
-    with open(f"./decoded_data/{region}_roads.json", "r") as file:
-        decoded_data = json.load(file)
-        return decoded_data
 class Roads():
-    def __init__(self, targetLocation):
+    def __init__(self, targetLocation, tol=10):
         self.targetLocation = targetLocation
+        self.tol = tol
+        self.dbConn = DataBaseConnection.DataBaseConnection()
 
-    def speed_limits(self, region):
+    def speed_limits(self):
         try:
-            print(Fore.WHITE + "\nLocating User" + Fore.RESET)
             coords = self.targetLocation
             lat, lon = coords[0], coords[1]
 
-            lat_offset = 50 / 111320
-            lon_offset = 50 / (111320 * cos(radians(lat)))
+            lat_offset = self.tol / 111320
+            lon_offset = self.tol / (111320 * cos(radians(lat)))
 
             south = lat - lat_offset
             west = lon - lon_offset
             north = lat + lat_offset
             east = lon + lon_offset
 
-            roads = []
+            matching_road = self.dbConn.Query(
+                """SELECT ROAD.* FROM ROAD 
+                JOIN ROAD_COORDS ON ROAD.ROAD_ID = ROAD_COORDS.ROAD_ID 
+                WHERE ROAD_COORDS.LAT BETWEEN ? AND ? 
+                AND ROAD_COORDS.LON BETWEEN ? AND ?""",
+                (south, north, west, east)
+            )
 
-            for road in getRoads(region):
-                for pt in road["coords"]:
-                    pt_lat = pt["lat"]
-                    pt_lon = pt["lon"]
-
-                    if south <= pt_lat <= north and west <= pt_lon <= east:
-                        roads.append(road)
-                        break
-
-            return roads
+            return matching_road
 
         except Exception as e:
             print(e)
 
-def getCameras(region):
-    with open(f"./decoded_data/{region}_cams.json", "r") as file:
-        decoded_data = json.load(file)
-        return decoded_data
 class Cameras():
     def __init__(self, targetLocation):
         self.targetLocation = targetLocation
+        self.dbConn = DataBaseConnection.DataBaseConnection()
 
-    def cameras(self,region):
+    def cameras(self):
         try:
-            print(Fore.WHITE + "\nLocating User" + Fore.RESET)
             coords = self.targetLocation
             lat, lon = coords[0], coords[1]
 
@@ -76,18 +69,23 @@ class Cameras():
             north = lat + lat_offset
             east = lon + lon_offset
 
-            cameras = []
+            cameras = self.dbConn.Query(
+                "SELECT * FROM SPEED_CAMERA WHERE LAT BETWEEN ? AND ? AND LON BETWEEN ? AND ?",
+                (south, north, west, east)
+            )
 
-            for cam in getCameras(region):
+            '''
+                        for cam in getCameras(region):
                 pt_lat = cam["lat"]
                 pt_lon = cam["lon"]
 
                 if south <= pt_lat <= north and west <= pt_lon <= east:
                     cameras.append(cam)
+            '''
+
 
             return cameras
 
         except Exception as e:
             print(e)
 
-print(UserLocation().getUserLocation())

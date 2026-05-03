@@ -12,11 +12,15 @@ from playsound3 import playsound
 import CoreLogic
 import OSMMapExtractor
 import OfflineOSMManager
+import DataBaseConnection
 import runTime
 import datetime
 from datetime import datetime as dt
 
 current_speed_limit = 0
+current_road = None
+success = 0
+fail = 0
 
 def camera_distance_m(user_lat: float, user_lon: float, cam_lat: float, cam_lon: float) -> float:
     R = 6_371_000  # Earth's radius in metres
@@ -50,9 +54,6 @@ def logLastOnDate():
                 OSMMapExtractor.MyHandler().applicator()
                 OSMMapExtractor.Decoder("austria").writeDecoded()
 
-                #OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
-                #OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
-
                 log.write(str(today))
             else:
                 print("\nNext reminder: Next launch")
@@ -60,7 +61,6 @@ def logLastOnDate():
         else:
             print("\nDataset Up To Date")
             log.write(last_update_window)
-
 def checkRequiredDirectoryExists():
     required_directory1 = Path("./decoded_data")
     required_directory2 = Path("./osm-data")
@@ -68,8 +68,6 @@ def checkRequiredDirectoryExists():
     if not required_directory1.exists() or not required_directory2.exists():
 
         print(Fore.RED+"Missing Dataset Detected......\nDownloading\n"+Fore.RESET)
-        #OfflineOSMManager.download_manager("hungary", "https://download.geofabrik.de/europe/hungary.html")
-        #OfflineOSMManager.download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
         OfflineOSMManager.OSMManager().download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
         OSMMapExtractor.MyHandler().applicator()
         OSMMapExtractor.Decoder("austria").writeDecoded()
@@ -77,76 +75,124 @@ def checkRequiredDirectoryExists():
         with open("./misc_data/lastLogdate.txt", "w") as log:
             today = datetime.date.today()
             log.write(str(today))
+def checkEmptyDb():
+    conncetion = DataBaseConnection.DataBaseConnection()
+    result = conncetion.Query("SELECT EMPTY_DATABASE FROM SETTINGS")
+
+    if result[0][0] == 1 or result[0][0] == str("1"):
+        OSMMapExtractor.MyHandler().applicator()
+        OSMMapExtractor.Decoder("austria").writeDecoded()
+        conncetion.Query("UPDATE SETTINGS SET EMPTY_DATABASE = 0")
+
+def mainLoop():
+    global success, fail
+    while True:
+        try:
+            newApplication = CoreApplication(region="austria", sound_setting="male")
+            newApplication.roadAndSpeedLimit()
+            newApplication.checkSpeedCameras()
+            del newApplication
+
+            freq = float(runTime.calculate_update_times(success))
+            if (freq - 1) <= 1:
+                time.sleep(1)
+
+            print(Fore.GREEN + f"\n--------------\nSuccess: {success}\nFail: {fail}\nUpdate frequency: {runTime.calculate_update_times(success)}\n--------------")
+
+        except Exception as ex:
+            print(ex)
+
+class SessionHandler():
+    def __init__(self):
+        self.dbConn = DataBaseConnection.DataBaseConnection()
+        self.latestId = None
+        self.startTime = None
+        self.endTime = None
+
+    def getLatestId(self):
+        self.latestId = self.dbConn.Query("SELECT SESSION FROM SESSIONS ORDER BY SESSION DESC LIMIT 1;")
+        if self.latestId is None or self.latestId == []:
+            self.latestId = 1
+        else:
+            self.latestId = self.latestId[0][0]+1
+
+    def recordSessionStart(self):
+        self.startTime = datetime.datetime.now()
+
+    def recordSessionEnd(self):
+        self.endTime = datetime.datetime.now()
+
+    def execute(self):
+        self.dbConn.Query(
+            "INSERT INTO SESSIONS VALUES (?, ?, ?, ?, ?)",
+            (self.latestId, self.startTime, self.endTime, success, fail)
+        )
+
+#TODO: finish the class
+class DetectionHandler():
+    def __init__(self):
+        self.dbConn = DataBaseConnection.DataBaseConnection()
+        self.latestId = None
+        self.latestFk = None
+
+    def getLatestIds(self):
+        self.latestId = self.dbConn.Query("SELECT DETECTION_ID FROM DETECTIONS ORDER BY SESSION DESC LIMIT 1;")
+        self.latestFk = self.dbConn.Query("SELECT SESSION FROM SESSIONS ORDER BY SESSION DESC LIMIT 1;")
+
+    def execute(self):
+        self.dbConn.Query("")
 
 class CoreApplication():
     def __init__(self, region: str, sound_setting="male"):
         self.user_cords = CoreLogic.UserLocation().getUserLocation()
+        self.dbConn = DataBaseConnection.DataBaseConnection()
         self.sound_setting = sound_setting
         self.user_lat = self.user_cords[0]
         self.user_lon = self.user_cords[1]
-        self.tol = 0.0001
-        self.success = 0
-        self.fail = 0
+        self.tol = 10
         self.current_road = ""
         self.region = region
 
     def roadAndSpeedLimit(self):
-        global current_speed_limit
+        global current_speed_limit, current_road, success, fail
 
-        speed_limits = CoreLogic.Roads(self.user_cords).speed_limits(self.region)
-        lim = speed_limits
+        tol = self.tol
 
-        tol = 0.0001
+        while True:
+            matching_road = CoreLogic.Roads(self.user_cords, tol).speed_limits()
 
-        if speed_limits != [] and speed_limits != None:
-            while True:
-                match = next(
-                    (
-                        elem
-                        for elem in lim
-                        if any(
-                        abs(point["lat"] - self.user_lat) <= tol and
-                        abs(point["lon"] - self.user_lon) <= tol
-                        for point in elem.get("coords", [])
-                    )
-                    ),
-                    None
-                )
+            if matching_road:
+                success += 1
+                print(Fore.CYAN + "\nUser Location" + Fore.RESET)
+                current_road = matching_road[0][1]
+                print(f"---------------\nstreet name: {current_road}")
+                print(f"---------------\nspeed limit: {matching_road[0][2]}\n--------------\n")
+                if current_speed_limit != matching_road[0][2]:
+                    print(Fore.CYAN + "New Limit" + Fore.RESET)
+                    current_speed_limit = matching_road[0][2]
+                    if self.sound_setting == "male":
+                        sound = "./sound_files/Male_voice/" + str(current_speed_limit) + ".mp3"
+                        if isfile(sound):
+                            playsound(sound)
+                        else:
+                            playsound("./sound_files/Male_voice/new-speed-limit.mp3")
+                break
 
-                if match:
-                    self.success += 1
-                    print(Fore.CYAN + "\nUser Location" + Fore.RESET)
-                    self.current_road = match.get("roadName")
-                    print(f"---------------\nstreet name: {self.current_road}")
-                    print(f"---------------\nspeed limit: {match.get("maxspeed")}\n--------------\n")
-                    if current_speed_limit != match.get("maxspeed"):
-                        print(Fore.CYAN + "New Limit" + Fore.RESET)
-                        current_speed_limit = match.get("maxspeed")
-                        if self.sound_setting == "male":
-                            sound = "./sound_files/Male_voice/" + current_speed_limit + ".mp3"
-                            if isfile(sound):
-                                playsound(sound)
-                            else:
-                                playsound("./sound_files/Male_voice/new-speed-limit.mp3")
-                    break
+            else:
+                fail += 1
+                tol += 2
+                print(Fore.RED + f"\nNew Tolerance: {tol}\nRetrying\n" + Fore.RESET)
 
-                else:
-                    self.fail += 1
-                    tol += 0.0001
-                    print(Fore.RED + f"\nNew Tolerance: {tol}\nRetrying\n" + Fore.RESET)
-        else:
-            print(Fore.BLUE + "\nRetrying..." + Fore.RESET)
-            self.roadAndSpeedLimit()
 
     def checkSpeedCameras(self):
-        cameras = CoreLogic.Cameras(self.user_cords).cameras(self.region)
+        cameras = CoreLogic.Cameras(self.user_cords).cameras()
         closest = None
         if cameras != [] and cameras != None:
             for c in cameras:
-                cam_cord = [c["lat"], c["lon"]]
+                cam_cord = [c[2], c[3]]   # DB row: (id, region, lat, lon)
                 print(Fore.WHITE + "\nCalculating Distance" + Fore.RESET)
                 distance = camera_distance_m(self.user_lat, self.user_lon, cam_cord[0], cam_cord[1])
-                if closest == None:
+                if closest is None:
                     closest = distance
                 elif distance < closest:
                     closest = distance
@@ -155,25 +201,19 @@ class CoreApplication():
         else:
             print(Fore.WHITE + "\nNo Cameras in Area" + Fore.RESET)
 
-
 checkRequiredDirectoryExists()
+checkEmptyDb()
 logLastOnDate()
 
+newSession = SessionHandler()
+
+newSession.getLatestId()
 runtime_thread = threading.Thread(target=runTime.main, daemon=True)
 runtime_thread.start()
 
-newApplication = CoreApplication(region="austria", sound_setting="male")
+newSession.recordSessionStart()
 
-while True:
-    try:
-        newApplication.roadAndSpeedLimit()
-        newApplication.checkSpeedCameras()
+mainLoop()
 
-        time.sleep(2)
-
-        print(Fore.GREEN+f"\n--------------\nSuccess: {newApplication.success}\nFail: {newApplication.fail}\nUpdate frequency: {runTime.calculate_update_times(newApplication.success)}\n--------------")
-
-
-    except Exception as ex:
-        print(ex)
-
+newSession.recordSessionEnd()
+newSession.execute()
