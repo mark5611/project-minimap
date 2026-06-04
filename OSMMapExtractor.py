@@ -120,15 +120,9 @@ class Decoder():
     def __init__(self, countryName):
         self.countryName = countryName
 
+
     def writeDecoded(self):
         RoadsHandler(self.countryName).parseRoads()
         SpeedCameraHandler(self.countryName).parseCams()
-
-        '''
-        Path("./decoded_data").mkdir(parents=True, exist_ok=True)
-        with open(f"./decoded_data/{self.countryName}_roads.json", "w", encoding="utf-8") as f:
-            json.dump(json_roads, f, ensure_ascii=False)
-
-        with open(f"./decoded_data/{self.countryName}_cams.json", "w", encoding="utf-8") as f:
-            json.dump(json_cams, f, ensure_ascii=False)
-'''
+        if self.countryName == "Austria":
+            pass

@@ -1,21 +1,34 @@
+import time
 from math import cos, radians
 
 from colorama import Fore
 
 import DataBaseConnection
+import Locator_Simulator
 import Locator_macOS
 
 camera_detection_range = 800
-
+'''
 class UserLocation():
     def __init__(self, locator_preference = "macOS"):
         self.locator_preference = locator_preference
-        self.location = Locator_macOS.get_current_location()
+        while True:
+            self.location = Locator_macOS.get_current_location()
+            if self.location is not None:
+                break
         print(print(Fore.RED + "\n------\nUpdating Location\n--------\n" + Fore.RESET))
 
     def getUserLocation(self):
         lat, lon = self.location["latitude"], self.location["longitude"]
         return(lat, lon)
+'''
+class SimulatedLocation():
+    def __init__(self):
+        self.location = Locator_Simulator.getLocation()
+    def simulateLocation(self):
+        if self.location is not None:
+            self.location = Locator_Simulator.simulate_movement()
+            return self.location
 
 class Roads():
     def __init__(self, targetLocation, tol=10):

@@ -2,15 +2,13 @@ import threading
 import time
 from os.path import isfile
 from pathlib import Path
+from sqlite3 import connect
 
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QFont, QColor, QPixmap, QIcon
 from colorama import Fore
-
 import math
-
 from playsound3 import playsound
-
 from PyQt5.QtWidgets import QApplication, QWidget, QGridLayout, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, \
     QStackedLayout
 import CoreLogic
@@ -29,7 +27,7 @@ app_status = None
 isSpeedCamera = False
 
 def camera_distance_m(user_lat: float, user_lon: float, cam_lat: float, cam_lon: float) -> float:
-    R = 6_371_000  # Earth's radius in metres
+    R = 6_371_000
 
     phi1 = math.radians(user_lat)
     phi2 = math.radians(cam_lat)
@@ -41,33 +39,29 @@ def camera_distance_m(user_lat: float, user_lon: float, cam_lat: float, cam_lon:
 
     return R * c
 
-def logLastOnDate():
-    last_update_window = None
-    with open("./misc_data/lastLogdate.txt", "r") as logr:
-        last_update_window = logr.readline()
+def logLastOnDate(country_selection):
+    dbConn = DataBaseConnection.DataBaseConnection()
+    last_update_window = dbConn.Query("SELECT LAST_UPDATED FROM REGION WHERE COUNTRY_CODE = ?", (country_selection,))[0][0]
 
+    last_update_date = dt.strptime(last_update_window, "%Y-%m-%d").date()
+    today = datetime.date.today()
 
-    with open("./misc_data/lastLogdate.txt", "w") as log:
-        today = datetime.date.today()
-        last_update_date =dt.strptime(last_update_window, "%Y-%m-%d").date()
+    if (today - datetime.timedelta(days = 25)) >=  last_update_date:
+        choice = input("\nIt is recommended to update the dataset. Proceed? (Y/N) ")
 
-        if (today - datetime.timedelta(days = 25)) >=  last_update_date:
-            choice = input("\nIt is recommended to update the dataset. Proceed? (Y/N) ")
+        if choice.lower() == "y":
 
-            if choice == "Y" or choice == "y":
+            OfflineOSMManager.OSMManager().download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
+            OSMMapExtractor.MyHandler().applicator()
+            OSMMapExtractor.Decoder("austria").writeDecoded()
 
-                OfflineOSMManager.OSMManager().download_manager("austria", "https://download.geofabrik.de/europe/austria.html")
-                OSMMapExtractor.MyHandler().applicator()
-                OSMMapExtractor.Decoder("austria").writeDecoded()
-
-                log.write(str(today))
-            else:
-                print("\nNext reminder: Next launch")
-                log.write(last_update_window)
+            dbConn.Query("UPDATE TABLE REGION ALTER COLUMN LAST_UPDATED SET LAST_UPDATED = ?", (today,))
         else:
-            print("\nDataset Up To Date")
-            log.write(last_update_window)
+            print("\nNext reminder: Next launch")
+    else:
+        print("\nDataset Up To Date")
 def checkRequiredDirectoryExists():
+    dbConn = DataBaseConnection.DataBaseConnection()
     required_directory1 = Path("./decoded_data")
     required_directory2 = Path("./osm-data")
 
@@ -78,9 +72,7 @@ def checkRequiredDirectoryExists():
         OSMMapExtractor.MyHandler().applicator()
         OSMMapExtractor.Decoder("austria").writeDecoded()
 
-        with open("./misc_data/lastLogdate.txt", "w") as log:
-            today = datetime.date.today()
-            log.write(str(today))
+        dbConn.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", "2026-06-01"))
 def checkEmptyDb():
     conncetion = DataBaseConnection.DataBaseConnection()
     result = conncetion.Query("SELECT EMPTY_DATABASE FROM SETTINGS")
@@ -89,23 +81,24 @@ def checkEmptyDb():
         OSMMapExtractor.MyHandler().applicator()
         OSMMapExtractor.Decoder("austria").writeDecoded()
         conncetion.Query("UPDATE SETTINGS SET EMPTY_DATABASE = 0")
+        conncetion.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", "2026-06-01"))
 
 def mainLoop():
     global success, fail, app_status
     while True:
-        try:
-            newApplication = CoreApplication(region="austria", sound_setting="male")
-            app_status = "Fetching Location..."
-            newApplication.roadAndSpeedLimit()
-            app_status = "Locating Road..."
-            newApplication.checkSpeedCameras()
-            app_status = "Checking Speed Cameras..."
-            del newApplication
+        #try:
+        newApplication = CoreApplication(region="austria", sound_setting="male")
+        app_status = "Fetching Location..."
+        newApplication.roadAndSpeedLimit()
+        app_status = "Locating Road..."
+        newApplication.checkSpeedCameras()
+        app_status = "Checking Speed Cameras..."
+        del newApplication
 
-            print(Fore.GREEN + f"\n--------------\nSuccess: {success}\nFail: {fail}\nUpdate frequency: {runTime.calculate_update_times(success)}\n--------------")
+        print(Fore.GREEN + f"\n--------------\nSuccess: {success}\nFail: {fail}\nUpdate frequency: {runTime.calculate_update_times(success)}\n--------------")
 
-        except Exception as ex:
-            print(ex)
+        '''except Exception as ex:
+            print(ex)'''
 def main():
     loop_thread = threading.Thread(target=mainLoop, daemon=True)
     loop_thread.start()
@@ -121,6 +114,10 @@ class GUI():
 
         main_layout = QVBoxLayout()
         self.window.setLayout(main_layout)
+
+        mode_label = QLabel("Mode: Testing Simulator")
+        mode_label.setStyleSheet("color: red;")
+        main_layout.addWidget(mode_label)
 
         road_container = QWidget()
         road_container.setFixedSize(300, 70)
@@ -209,6 +206,10 @@ class GUI():
         def update_labels():
             status_label.setText("Current Status: "+str(app_status))
             road_label.setText(str(current_road))
+            if len(str(current_road)) >= 20:
+                road_label.setFont(QFont("Helvetica", 20, QFont.Bold))
+            else:
+                road_label.setFont(QFont("Helvetica", 30, QFont.Bold))
             limit_label.setText(str(current_speed_limit))
             update_frequency.setText("Update Frequency: " + str(runTime.calculate_update_times(success)))
             if not isSpeedCamera:
@@ -249,23 +250,43 @@ class SessionHandler():
             (self.latestId, self.startTime, self.endTime, success, fail)
         )
 
-#TODO: finish the class
 class DetectionHandler():
     def __init__(self):
         self.dbConn = DataBaseConnection.DataBaseConnection()
         self.latestId = None
         self.latestFk = None
+        self.currentRoadId = None
+        self.camID = None
+        self.time = datetime.datetime.now()
 
-    def getLatestIds(self):
-        self.latestId = self.dbConn.Query("SELECT DETECTION_ID FROM DETECTIONS ORDER BY SESSION DESC LIMIT 1;")
-        self.latestFk = self.dbConn.Query("SELECT SESSION FROM SESSIONS ORDER BY SESSION DESC LIMIT 1;")
+    def getLatestIds(self, uLat, uLon):
+        global current_road
 
-    def execute(self):
-        self.dbConn.Query("")
+        result = self.dbConn.Query("SELECT DETECTION_ID FROM DETECTIONS ORDER BY DETECTION_ID DESC LIMIT 1;")
+        self.latestId = (result[0][0] + 1) if result else 1
 
+        result = self.dbConn.Query("SELECT SESSION FROM SESSIONS ORDER BY SESSION DESC LIMIT 1;")
+        self.latestFk = (int(result[0][0]) + 1) if result else 1
+
+        result = self.dbConn.Query("SELECT ROAD_ID FROM ROAD WHERE NAME = ?;", (current_road,))
+        self.currentRoadId = result[0][0] if result else None
+
+        result = self.dbConn.Query("SELECT CAMERA_ID FROM SPEED_CAMERA WHERE LAT = ? AND LON = ?;",(str(uLat), str(uLon),))
+        self.camID = result[0][0] if result else None
+
+
+    def execute(self, uLat, uLon):
+        self.getLatestIds(uLat, uLon)
+        self.dbConn.Query(
+            "INSERT INTO DETECTIONS VALUES (?, ?, ?, ?, ?, ?)",
+            (self.latestId, self.latestFk, self.currentRoadId, self.camID, self.time, "Camera")
+        )
+
+simulatorInstance = CoreLogic.SimulatedLocation()
 class CoreApplication():
     def __init__(self, region: str, sound_setting="male"):
-        self.user_cords = CoreLogic.UserLocation().getUserLocation()
+        '''self.user_cords = CoreLogic.UserLocation().getUserLocation()'''
+        self.user_cords = simulatorInstance.simulateLocation()
         self.dbConn = DataBaseConnection.DataBaseConnection()
         self.sound_setting = sound_setting
         self.user_lat = self.user_cords[0]
@@ -305,18 +326,21 @@ class CoreApplication():
 
     def checkSpeedCameras(self):
         global isSpeedCamera
+        #CoreLogic.camera_detection_range -= 500
         cameras = CoreLogic.Cameras(self.user_cords).cameras()
         closest = None
         if cameras != [] and cameras != None:
+            print("\n\nParsing Cameras\n\n")
             isSpeedCamera = True
             for c in cameras:
-                cam_cord = [c[2], c[3]]   # DB row: (id, region, lat, lon)
+                cam_cord = [c[2], c[3]]
                 print(Fore.WHITE + "\nCalculating Distance" + Fore.RESET)
                 distance = camera_distance_m(self.user_lat, self.user_lon, cam_cord[0], cam_cord[1])
                 if closest is None:
                     closest = distance
                 elif distance < closest:
                     closest = distance
+                DetectionHandler().execute(cam_cord[0], cam_cord[1])
             playsound("./sound_files/Male_voice/speed-cam.mp3")
             print(Fore.RED + f"\nSpeed Camera in: {int(closest)} meters" + Fore.RESET)
         else:
@@ -325,7 +349,7 @@ class CoreApplication():
 
 checkRequiredDirectoryExists()
 checkEmptyDb()
-logLastOnDate()
+logLastOnDate("AT")
 
 newSession = SessionHandler()
 

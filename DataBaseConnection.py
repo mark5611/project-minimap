@@ -32,3 +32,5 @@ class DataBaseConnection():
 if __name__ == "__main__":
     db = DataBaseConnection()
     db.resetDB()
+    #db.deleteAll("REGION")
+    #db.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", "2026-06-01"))

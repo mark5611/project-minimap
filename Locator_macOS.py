@@ -1,4 +1,6 @@
 import sys
+import time
+
 from Foundation import NSObject
 from objc import super
 from PyObjCTools import AppHelper
@@ -53,5 +55,9 @@ def get_current_location():
 
 
 if __name__ == "__main__":
-    location = get_current_location()
-    print(location)
+    i=0
+    while True:
+        i+=1
+        location = get_current_location()
+        print(location)
+        print(i)
