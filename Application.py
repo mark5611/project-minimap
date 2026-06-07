@@ -72,7 +72,7 @@ def checkRequiredDirectoryExists():
         OSMMapExtractor.MyHandler().applicator()
         OSMMapExtractor.Decoder("austria").writeDecoded()
 
-        dbConn.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", "2026-06-01"))
+        dbConn.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", datetime.date.today()))
 def checkEmptyDb():
     conncetion = DataBaseConnection.DataBaseConnection()
     result = conncetion.Query("SELECT EMPTY_DATABASE FROM SETTINGS")
@@ -81,7 +81,7 @@ def checkEmptyDb():
         OSMMapExtractor.MyHandler().applicator()
         OSMMapExtractor.Decoder("austria").writeDecoded()
         conncetion.Query("UPDATE SETTINGS SET EMPTY_DATABASE = 0")
-        conncetion.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", "2026-06-01"))
+        conncetion.Query("INSERT INTO REGION VALUES (?, ?, ?, ?)", (None, "Austria", "AT", datetime.date.today()))
 
 def mainLoop():
     global success, fail, app_status
